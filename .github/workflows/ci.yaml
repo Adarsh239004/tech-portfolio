@@ -26,17 +26,14 @@ jobs:
           IMAGE_NAME=$(grep '^image_name=' version.txt | cut -d '=' -f2 | tr -d ' \r')
           VERSION=$(grep '^version=' version.txt | cut -d '=' -f2 | tr -d ' \r')
           BUILD=${{ github.run_number }}
-
           FINAL_TAG=$VERSION.$BUILD
 
           echo "image=$IMAGE_NAME" >> $GITHUB_OUTPUT
           echo "tag=$FINAL_TAG" >> $GITHUB_OUTPUT
 
-          echo "IMAGE_NAME=$IMAGE_NAME"
-          echo "FINAL_TAG=$FINAL_TAG"
-
       # 🔹 Node
-      - uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
           node-version: 18
 
@@ -44,10 +41,11 @@ jobs:
       - run: npm run build
 
       # 🔹 Docker setup
-      - uses: docker/setup-buildx-action@v3
+      - name: Setup Docker
+        uses: docker/setup-buildx-action@v3
 
-      # 🔴 Login only when main
-      - name: Login DockerHub
+      # 🔴 Login only on main
+      - name: Docker login
         if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
@@ -76,3 +74,18 @@ jobs:
           docker push $IMAGE:$TAG
           docker push $IMAGE:latest
 
+      # 🔥 AUTO TRIGGER CD AFTER SUCCESS
+      - name: Trigger CD workflow
+        if: github.ref == 'refs/heads/main'
+        run: |
+          curl -X POST \
+          -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/${{ github.repository }}/actions/workflows/cd.yml/dispatches \
+          -d '{
+            "ref": "main",
+            "inputs": {
+              "image": "${{ steps.vars.outputs.image }}",
+              "tag": "${{ steps.vars.outputs.tag }}"
+            }
+          }'

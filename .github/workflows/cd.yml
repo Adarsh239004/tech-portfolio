@@ -2,6 +2,13 @@ name: CD Deploy React Portfolio to EC2
 
 on:
   workflow_dispatch:
+    inputs:
+      image:
+        description: "Docker image name"
+        required: true
+      tag:
+        description: "Docker image tag"
+        required: true
 
 jobs:
   deploy:
@@ -9,18 +16,45 @@ jobs:
 
     steps:
       - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
           script: |
+
+            IMAGE=${{ secrets.DOCKER_USERNAME }}/${{ github.event.inputs.image }}:${{ github.event.inputs.tag }}
+            CONTAINER=react-portfolio
+
+            echo "=============================="
+            echo "Deploying image: $IMAGE"
+            echo "Container name: $CONTAINER"
+            echo "=============================="
+
+            # Docker login
             docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
-            docker pull ${{ secrets.DOCKER_USERNAME }}/react-portfolio:latest
+            # Pull new image
+            docker pull $IMAGE
 
-            docker stop react-portfolio || true
-            docker rm react-portfolio || true
+            echo "Stopping old container if exists..."
 
-            docker run -d -p 80:80 --name react-portfolio ${{ secrets.DOCKER_USERNAME }}/react-portfolio:latest
+            # Stop old container
+            if [ "$(docker ps -q -f name=$CONTAINER)" ]; then
+              docker stop $CONTAINER
+            fi
+
+            # Remove old container
+            if [ "$(docker ps -aq -f name=$CONTAINER)" ]; then
+              docker rm $CONTAINER
+            fi
+
+            echo "Running new container..."
+
+            docker run -d \
+              --name $CONTAINER \
+              -p 80:80 \
+              $IMAGE
+
+            echo "Deployment completed 🚀"
