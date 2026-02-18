@@ -7,7 +7,7 @@ function App() {
       <nav className="navbar">
         <h2>TechNova</h2>
         <ul>
-          <li>Home</li>
+          <li>About</li>
           <li>Services</li>
           <li>Projects</li>
           <li>Contact</li>
