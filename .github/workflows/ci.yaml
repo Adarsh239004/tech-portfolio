@@ -15,10 +15,11 @@ jobs:
       tag: ${{ steps.vars.outputs.tag }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      # read version.txt
-      - name: Read version file
+      # 🔹 Read version.txt
+      - name: Read version
         id: vars
         run: |
           IMAGE_NAME=$(grep '^image_name=' version.txt | cut -d '=' -f2 | tr -d ' \r')
@@ -29,17 +30,19 @@ jobs:
           echo "image=$IMAGE_NAME" >> $GITHUB_OUTPUT
           echo "tag=$FINAL_TAG" >> $GITHUB_OUTPUT
 
-      - uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v3
         with:
           node-version: 18
 
       - run: npm install
       - run: npm run build
 
-      - uses: docker/setup-buildx-action@v3
+      - name: Setup Docker
+        uses: docker/setup-buildx-action@v3
 
       # login only main
-      - name: Login DockerHub
+      - name: Docker login
         if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
@@ -47,7 +50,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       # build
-      - name: Build Docker
+      - name: Build image
         run: |
           IMAGE=${{ secrets.DOCKER_USERNAME }}/${{ steps.vars.outputs.image }}
           TAG=${{ steps.vars.outputs.tag }}
@@ -59,7 +62,7 @@ jobs:
             --load
 
       # push only main
-      - name: Push Docker
+      - name: Push image
         if: github.ref == 'refs/heads/main'
         run: |
           IMAGE=${{ secrets.DOCKER_USERNAME }}/${{ steps.vars.outputs.image }}
@@ -68,13 +71,15 @@ jobs:
           docker push $IMAGE:$TAG
           docker push $IMAGE:latest
 
-      # 🔥 TRIGGER CD AFTER SUCCESS
-      - name: Trigger CD
-        if: github.ref == 'refs/heads/main'
-        uses: peter-evans/workflow-dispatch@v2
-        with:
-          workflow: cd.yml
-          inputs:
-            image: ${{ steps.vars.outputs.image }}
-            tag: ${{ steps.vars.outputs.tag }}
+       # 🔥 TRIGGER CD (IMPORTANT: correct indent)
+       - name: Trigger CD workflow
+         if: github.ref == 'refs/heads/main'
+         uses: peter-evans/workflow-dispatch@v2
+         with:
+           workflow: cd.yml
+           ref: main
+           inputs:
+             image: "${{ steps.vars.outputs.image }}"
+             tag: "${{ steps.vars.outputs.tag }}"
+
 
