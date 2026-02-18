@@ -20,38 +20,13 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-
-            echo "===== START DEPLOY ====="
-
             IMAGE=${{ secrets.DOCKER_USERNAME }}/${{ github.event.inputs.image }}:${{ github.event.inputs.tag }}
             CONTAINER=react-portfolio
 
-            echo "Image: $IMAGE"
-
-            # check docker
-            docker --version
-
-            # login
-            echo "Logging into DockerHub..."
             docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-
-            # pull image
-            echo "Pulling image..."
             docker pull $IMAGE
 
-            # show containers
-            echo "Running containers before:"
-            docker ps -a
-
-            # stop old
             docker stop $CONTAINER || true
             docker rm $CONTAINER || true
 
-            # run new
-            echo "Starting container..."
             docker run -d -p 80:80 --name $CONTAINER $IMAGE
-
-            echo "Running containers after:"
-            docker ps -a
-
-            echo "===== DEPLOY END ====="
